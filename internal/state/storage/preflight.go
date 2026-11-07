@@ -110,7 +110,8 @@ func PlanMove(ctx context.Context, root config.RootID, target string) Plan {
 	plan.Bytes, plan.Files, _, _, _ = measureRoot(ctx, plan.Root, plan.From, 0)
 	plan.Need = plan.Bytes + headroom
 
-	if err := probeWritable(plan.To); err != nil {
+	probed, err := probeWritable(plan.To)
+	if err != nil {
 		plan.Refusals = append(plan.Refusals, Refusal{
 			Code: "target.unwritable", Detail: "that folder cannot be written to: " + err.Error(),
 		})
@@ -129,7 +130,7 @@ func PlanMove(ctx context.Context, root config.RootID, target string) Plan {
 			plan.Refusals = append(plan.Refusals, Refusal{Code: "target.not_empty", Detail: notEmptyDetail(plan.Root, entries)})
 		}
 	}
-	vol := readVolume(plan.To)
+	vol := readVolume(probed)
 	plan.Free = vol.Free
 	if vol.Free > 0 && vol.Free < plan.Need {
 		plan.Refusals = append(plan.Refusals, Refusal{
@@ -160,24 +161,50 @@ func resumes(plan Plan) bool {
 	return ok && pending.Root == plan.Root && samePath(pending.To, plan.To)
 }
 
-// probeWritable creates the target if it is missing and proves a file can be
-// written in it. Checking the mode bits instead would pass on a read-only
-// network share and fail halfway through the copy.
-func probeWritable(dir string) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	probe, err := os.CreateTemp(dir, ".reasonix-write-probe-*")
+// probeWritable proves a file can be written where the move will land and
+// reports the folder it proved it in. It never creates the target: a plan is an
+// answer asked for while the path is still being typed, and one that made
+// folders would leave a trail of them behind every keystroke.
+func probeWritable(dir string) (string, error) {
+	existing, err := existingAncestor(dir)
 	if err != nil {
-		return err
+		return "", err
+	}
+	probe, err := os.CreateTemp(existing, ".reasonix-write-probe-*")
+	if err != nil {
+		return existing, err
 	}
 	name := probe.Name()
 	closeErr := probe.Close()
 	rmErr := os.Remove(name)
 	if closeErr != nil {
-		return closeErr
+		return existing, closeErr
 	}
-	return rmErr
+	return existing, rmErr
+}
+
+// existingAncestor walks up from dir to the nearest path that exists. A target
+// the person has not finished naming has no folder yet, and both the write proof
+// and the free-space reading are properties of the folder above it.
+func existingAncestor(dir string) (string, error) {
+	at := dir
+	for {
+		info, err := os.Stat(at)
+		if err == nil {
+			if !info.IsDir() {
+				return "", fmt.Errorf("%s is a file, not a folder", at)
+			}
+			return at, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		parent := filepath.Dir(at)
+		if parent == at {
+			return "", err
+		}
+		at = parent
+	}
 }
 
 // within reports whether path sits inside base, comparing cleaned absolute

@@ -100,6 +100,27 @@ func TestStoragePlanReportsCostAndRefusalsWithoutMoving(t *testing.T) {
 	}
 }
 
+// The panel asks for a plan while the path is still being typed, so the answer
+// must leave the disk alone. Creating the target to prove it writable left a
+// folder behind for every keystroke: D:\Documents\t, then te, then tes.
+func TestStoragePlanCreatesNothing(t *testing.T) {
+	s := newProviderEditServer(t)
+	s.AllowProviderEdit()
+	srv := httptest.NewServer(operatorHandler(s))
+	defer srv.Close()
+
+	target := filepath.Join(testenv.TempDir(t), "still", "typing")
+	resp := postProvider(t, srv.URL, "/storage/plan", `{"root":"state","dir":"`+storagePathLiteral(target)+`"}`)
+	defer resp.Body.Close()
+
+	if _, err := os.Stat(filepath.Join(filepath.Dir(target), "still")); !os.IsNotExist(err) {
+		t.Fatalf("planning created %q", filepath.Join(filepath.Dir(target), "still"))
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("planning created the target %q", target)
+	}
+}
+
 // Relocation writes the configuration of the machine running the kernel, which
 // is the one thing a server reachable over a network must not let a client do.
 func TestStorageMoveIsRefusedUntilTheHostGrantsIt(t *testing.T) {

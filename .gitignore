@@ -3,6 +3,7 @@
 # name here; repolint's build-artifact rule holds the two lists together.
 /bin/
 /dist/
+/dist-new/
 /stage/
 /npm/.stage/
 /reasonix

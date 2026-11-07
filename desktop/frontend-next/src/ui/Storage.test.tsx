@@ -153,3 +153,26 @@ it("draws no list when nothing was skipped", async () => {
   await pickOld();
   expect(screen.queryByText(/个会话没有导入/)).toBeNull();
 });
+
+// Every keystroke used to ask the kernel for a plan, and the kernel created the
+// target while answering: typing D:\Documents\test left D:\Documents\t, te, tes
+// behind. One ask per finished path, not per character.
+it("asks for a move plan once the path stops changing, not once per keystroke", async () => {
+  const port = {
+    storage: vi.fn(async () => ({ roots: [root("state", { relocatable: true, dir: "/data/state" })], editable: true })),
+    planStorageMove: vi.fn(async () => ({ ok: false, refusals: [] })),
+  } as unknown as AgentPort;
+  render(<Storage port={port} hub={{} as HubPort} workspace="" onRecovered={() => {}} />);
+  await flush();
+
+  fireEvent.click(screen.getByText("移动…"));
+  const input = document.querySelector<HTMLInputElement>('input[data-action="storage.move"]')!;
+  for (const value of ["D", "D:", "D:\\t", "D:\\te", "D:\\test"]) {
+    fireEvent.change(input, { target: { value } });
+  }
+  expect(port.planStorageMove).not.toHaveBeenCalled();
+
+  await act(async () => { await vi.advanceTimersByTimeAsync(400); });
+  expect(port.planStorageMove).toHaveBeenCalledTimes(1);
+  expect(port.planStorageMove).toHaveBeenCalledWith("state", "D:\\test");
+});
