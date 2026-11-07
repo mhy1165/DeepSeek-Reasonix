@@ -1,5 +1,5 @@
 import { memo, useCallback, useState, type ReactNode } from "react";
-import type { AgentPort, ContextBreakdown, JobEntry, McpEntry, WorkspaceChanges } from "../port/port";
+import type { AgentPort, ContextBreakdown, JobEntry, McpEntry, TaskCommandEntry, WorkspaceChanges } from "../port/port";
 import type { ExtensionSurface } from "../port/wire";
 import type { Metrics as M, PlanStep } from "../state/session";
 import { Agents } from "./panels/Agents";
@@ -41,6 +41,10 @@ interface Props extends Rail {
   port: AgentPort;
   metrics: M;
   jobs: JobEntry[];
+  taskCommands: TaskCommandEntry[];
+  taskCommandsError?: string;
+  onStartCommand: (id: string) => Promise<void>;
+  onDeleteCommand: (id: string) => Promise<void>;
   mcp: McpEntry[];
   rate: number;
   done: boolean;
@@ -85,6 +89,10 @@ export const Metrics = memo(function Metrics({
   changes,
   stats,
   jobs,
+  taskCommands,
+  taskCommandsError,
+  onStartCommand,
+  onDeleteCommand,
   mcp,
   rate,
   done,
@@ -131,7 +139,16 @@ export const Metrics = memo(function Metrics({
       <Files key="files" changes={changes} yolo={yolo} tree={tree} open={openPath}
         onOpen={tree?.repo ? openPreview : undefined} />
     ),
-    jobs: <Jobs key="jobs" jobs={jobs} />,
+    jobs: (
+      <Jobs
+        key="jobs"
+        jobs={jobs}
+        commands={taskCommands}
+        commandsError={taskCommandsError}
+        onStart={onStartCommand}
+        onDelete={onDeleteCommand}
+      />
+    ),
     // Not folded behind a diagnostics drawer, which is where this was headed.
     // Mcp already speaks only when a server has failed or has never been
     // answered for, so the drawer would be empty on every rail that is fine

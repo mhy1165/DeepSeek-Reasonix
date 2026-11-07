@@ -8,7 +8,7 @@ import { ErrorBar } from "./ErrorBar";
 import { t } from "../i18n";
 import { hasPendingDecision, posture, runState } from "./decisions";
 import { createPortal } from "react-dom";
-import type { Checkpoint, ContextBreakdown, JobEntry, McpEntry, SessionStatus, WorkspaceChanges, WorkspaceGit } from "../port/port";
+import type { Checkpoint, ContextBreakdown, JobEntry, McpEntry, SessionStatus, TaskCommandEntry, WorkspaceChanges, WorkspaceGit } from "../port/port";
 import type { TrajectoryRead } from "../port/wire";
 import { chipLabel, initialState, quoteAmount, reduce } from "../state/session";
 import type { CurrencyAmount } from "../state/session";
@@ -66,7 +66,7 @@ import { PeerHeldBar } from "./PeerHeldBar";
 import { PostureNote, postureNote } from "./PostureNote";
 import { MemorySuggestRow } from "./MemorySuggestRow";
 import { SidePanel } from "./SidePanel";
-import { cancelJob } from "./jobcancel";
+import { cancelJob, deleteTaskCommand, startTaskCommand } from "./jobcancel";
 import { JobsLiveContext } from "./JobRunView";
 import { ThoughtFolds, useThoughtFolds } from "./thoughtfold";
 import { jobName } from "./panels/JobName";
@@ -89,6 +89,7 @@ export type { PaneReport };
 // A shared constant, not `?? []`: a fresh empty array every render reads as a
 // changed prop to the rail below it.
 const NO_JOBS: JobEntry[] = [];
+const NO_COMMANDS: TaskCommandEntry[] = [];
 const NO_COST: CurrencyAmount[] = [];
 
 type SessionRead = { kind: "pending" } | { kind: "settled"; status: SessionStatus | null };
@@ -334,6 +335,11 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
     return clearedJobs.size ? all.filter((j) => !clearedJobs.has(j.id)) : all.length ? all : NO_JOBS;
   }, [status?.jobs, status?.endedJobs, clearedJobs]);
   const jobsLive = useMemo(() => ({ jobs, cancel: (id: string) => cancelJob(port, id, notify, refreshStatus).then(() => {}), open: (job: JobEntry) => openJob({ id: job.id, name: jobName(job) }) }), [jobs, port, notify, refreshStatus, openJob]);
+  // Registered commands sit beside the jobs they start: the kernel keeps the
+  // definition, and every action addresses it by its stable id.
+  const taskCommands = status?.taskCommands ?? NO_COMMANDS;
+  const startCommand = useCallback((id: string) => startTaskCommand(port, id, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
+  const deleteCommand = useCallback((id: string) => deleteTaskCommand(port, id, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
   const counts = useMemo(() => {
     let steps = 0;
     let wrote = 0;
@@ -699,6 +705,10 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
             changes={rail.changes}
             stats={rail.stats}
             jobs={jobs}
+            taskCommands={taskCommands}
+            taskCommandsError={status?.taskCommandsError}
+            onStartCommand={startCommand}
+            onDeleteCommand={deleteCommand}
             mcp={mcp}
             rate={tps}
             done={!running}

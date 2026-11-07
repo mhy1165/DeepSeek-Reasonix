@@ -13,7 +13,7 @@
     "doc-prose": 1427,
     "error-text": 9,
     "essay": 2533,
-    "file-size": 18033,
+    "file-size": 18073,
     "flat-view": 0,
     "frontend-parity": 13,
     "function-size": 2372,
@@ -67,6 +67,12 @@
     "desktop/frontend-next/perf/README.md": {
       "doc-owner": 1,
       "doc-prose": 21
+    },
+    "desktop/frontend-next/src/port/mock.ts": {
+      "file-size": 34
+    },
+    "desktop/frontend-next/src/port/port.ts": {
+      "file-size": 6
     },
     "desktop/frontend-next/src/styles/LAYOUT.md": {
       "doc-owner": 1,

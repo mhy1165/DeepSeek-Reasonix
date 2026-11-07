@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { t } from "../../i18n";
-import type { JobEntry } from "../../port/port";
+import type { JobEntry, TaskCommandEntry } from "../../port/port";
 import { StudioIcon } from "../StudioIcon";
 import { JobName, jobName } from "./JobName";
 import { jobElapsed } from "./jobElapsed";
@@ -14,10 +14,22 @@ const ENDED: Record<string, { label: string; tone: string }> = {
   interrupted: { label: "common.interrupted", tone: "var(--faint)" },
 };
 
-export function Jobs({ jobs, onCancel, onView }: { jobs: JobEntry[]; onCancel?: (id: string) => Promise<void>; onView?: (id: string) => void }) {
+export function Jobs({ jobs, commands, commandsError, onCancel, onView, onStart, onDelete }: {
+  jobs: JobEntry[];
+  // Registered definitions of this session, which start a job rather than being
+  // one: they are listed above the jobs so a running command is both a row that
+  // can be started again once it ends and a row that can be stopped now.
+  commands?: TaskCommandEntry[];
+  commandsError?: string;
+  onCancel?: (id: string) => Promise<void>;
+  onView?: (id: string) => void;
+  onStart?: (id: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+}) {
   const [, tick] = useState(0);
   const [stopping, setStopping] = useState<ReadonlySet<string>>(new Set());
   const [armed, setArmed] = useState("");
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
     if (!armed) return;
@@ -35,14 +47,73 @@ export function Jobs({ jobs, onCancel, onView }: { jobs: JobEntry[]; onCancel?: 
   // every rail that was fine. The order it sits in is fixed per posture, so a
   // block coming and going moves only what is below it — cheaper than a
   // standing row a reader has learned to skip.
-  if (jobs.length === 0) return null;
+  const registered = commands ?? [];
+  if (jobs.length === 0 && registered.length === 0) return null;
   const live = jobs.filter((j) => j.status === "running");
   const stopAll = () => {
     setArmed("");
     for (const j of live) void onCancel?.(j.id);
   };
+  const busy = (id: string) => pending.has(id);
+  const run = (id: string, work: (id: string) => Promise<void> | void) => {
+    setArmed("");
+    setPending((prev) => new Set(prev).add(id));
+    void Promise.resolve(work(id)).finally(() => setPending((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    }));
+  };
 
   return (
+    <>
+    {registered.length > 0 && (
+      <div className="block" data-b="task-commands">
+        <div className="lbl">
+          {t("common.registered_tasks")}
+          <span className="c">{registered.length}</span>
+        </div>
+        <div className="jobs">
+          {registered.map((c) => {
+            const running = live.some((j) => j.commandId === c.id);
+            const offline = c.available === false;
+            return (
+              <div className="job" key={c.id} data-status={offline ? "unavailable" : running ? "running" : "registered"}>
+                <i className="pip" style={{ background: offline ? "var(--faint)" : running ? "var(--net)" : "var(--dim)" }} />
+                <span className="cmd" tabIndex={0} title={offline ? c.unavailableReason ?? c.command : c.command}>{c.name}</span>
+                <span className="rt">{offline ? t("common.unavailable") : running ? "running" : ""}</span>
+                {onStart && (armed === "cmd:" + c.id ? (
+                  <span className="job-confirm">
+                    <button type="button" className="job-stop" data-action="task.start" data-target={c.id} disabled={offline || running || busy(c.id)}
+                      onClick={() => run(c.id, onStart)}>{t("common.start")}</button>
+                  </span>
+                ) : (
+                  <button type="button" className="job-run" data-action="task.arm-start" data-target={c.id}
+                    disabled={offline || running || busy(c.id)} title={t("common.start")} aria-label={t("common.start")}
+                    onClick={() => run(c.id, onStart)}>
+                    <StudioIcon name="play" />
+                  </button>
+                ))}
+                {onDelete && (armed === "del:" + c.id ? (
+                  <span className="job-confirm">
+                    <span>{t("common.confirm_delete")}</span>
+                    <button type="button" className="job-stop" data-action="task.delete" data-target={c.id} disabled={busy(c.id)}
+                      onClick={() => run(c.id, onDelete)}>{t("panels.ok")}</button>
+                  </span>
+                ) : (
+                  <button type="button" className="job-stop" data-action="task.arm-delete" data-target={c.id} disabled={busy(c.id)}
+                    title={t("common.delete")} aria-label={t("common.delete")} onClick={() => setArmed("del:" + c.id)}>
+                    <StudioIcon name="trash" />
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        {commandsError ? <div className="job-confirm"><span>{t("common.unavailable")}</span></div> : null}
+      </div>
+    )}
+    {jobs.length > 0 && (
     <div className="block" data-b="jobs">
       <div className="lbl">
         {t("common.background_jobs")}
@@ -118,5 +189,7 @@ export function Jobs({ jobs, onCancel, onView }: { jobs: JobEntry[]; onCancel?: 
         })}
       </div>
     </div>
+    )}
+    </>
   );
 }
