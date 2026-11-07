@@ -61,8 +61,9 @@ func (m *Manager) finishUninvokedJob(j *Job, st Status, cause error) {
 		}
 	}
 	resultRef := j.artifactRefLocked()
+	restarting := j.launch.restart.requested
 	j.mu.Unlock()
-	ev := m.recordCompletion(j.SessionID, j.ID, j.Kind, j.Label, resultRef, st, err)
+	ev := m.recordCompletion(j.SessionID, j.ID, j.Kind, j.Label, resultRef, st, err, !restarting)
 	j.mu.Lock()
 	j.runReturned = true
 	if j.status != Killed && j.status != Interrupted {

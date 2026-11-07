@@ -5,18 +5,18 @@
     "claude-dialect": 1,
     "codeowners": 0,
     "commented-code": 0,
-    "complexity": 666,
+    "complexity": 662,
     "css-important": 127,
-    "css-size": 8876,
+    "css-size": 8840,
     "doc-language": 0,
     "doc-owner": 27,
-    "doc-prose": 1434,
+    "doc-prose": 1427,
     "error-text": 9,
-    "essay": 2538,
-    "file-size": 18151,
+    "essay": 2533,
+    "file-size": 18033,
     "flat-view": 0,
     "frontend-parity": 13,
-    "function-size": 2392,
+    "function-size": 2372,
     "layer-order": 0,
     "layering": 0,
     "marker": 0,
@@ -24,7 +24,7 @@
     "orphan": 61,
     "process-input": 96,
     "refusal-path": 0,
-    "release-note": 661,
+    "release-note": 668,
     "stray-file": 0,
     "struct-state": 30,
     "window-state": 0,
@@ -78,11 +78,11 @@
     },
     "desktop/frontend-next/src/styles/app.css": {
       "css-important": 24,
-      "css-size": 5258
+      "css-size": 5229
     },
     "desktop/frontend-next/src/styles/studio.css": {
       "css-important": 103,
-      "css-size": 3618
+      "css-size": 3611
     },
     "desktop/internal/winuninstall/registry_windows.go": {
       "essay": 1
@@ -143,7 +143,7 @@
     },
     "docs/SPEC.md": {
       "doc-owner": 1,
-      "doc-prose": 332
+      "doc-prose": 325
     },
     "docs/THEME_ASSETS.md": {
       "doc-owner": 1,
@@ -264,8 +264,8 @@
       "process-input": 2
     },
     "internal/contract/config/config.go": {
-      "essay": 30,
-      "file-size": 807,
+      "essay": 25,
+      "file-size": 785,
       "process-input": 3
     },
     "internal/contract/config/credentials.go": {
@@ -341,10 +341,10 @@
       "file-size": 28
     },
     "internal/contract/config/render.go": {
-      "complexity": 86,
+      "complexity": 82,
       "essay": 1,
-      "file-size": 271,
-      "function-size": 373
+      "file-size": 251,
+      "function-size": 353
     },
     "internal/contract/config/vision.go": {
       "essay": 1,
@@ -758,7 +758,7 @@
     },
     "internal/frontend/serve/serve.go": {
       "essay": 17,
-      "file-size": 167
+      "file-size": 154
     },
     "internal/frontend/serve/serve_lease_test.go": {
       "essay": 3
@@ -968,7 +968,7 @@
     "internal/runtime/agent/agent.go": {
       "complexity": 32,
       "essay": 26,
-      "file-size": 1088,
+      "file-size": 1073,
       "function-size": 95
     },
     "internal/runtime/agent/agent_options.go": {
@@ -1118,7 +1118,7 @@
     },
     "internal/runtime/usecap/usecapability.go": {
       "essay": 9,
-      "file-size": 657,
+      "file-size": 653,
       "function-size": 2
     },
     "internal/runtime/writeclaim/scheduler.go": {
@@ -1195,7 +1195,7 @@
     },
     "internal/session/control/controller.go": {
       "essay": 29,
-      "file-size": 418
+      "file-size": 415
     },
     "internal/session/control/controller_test.go": {
       "essay": 9
@@ -1365,7 +1365,7 @@
     "internal/state/sessionstore/save.go": {
       "complexity": 36,
       "essay": 109,
-      "file-size": 1200,
+      "file-size": 1185,
       "function-size": 95
     },
     "internal/state/sessionstore/save_test.go": {
@@ -1494,7 +1494,7 @@
     },
     "internal/tools/jobs/jobs.go": {
       "essay": 35,
-      "file-size": 996
+      "file-size": 970
     },
     "internal/tools/jobs/jobs_extra_test.go": {
       "essay": 1
@@ -1566,6 +1566,9 @@
     "release-notes/studio/2.9.0.md": {
       "doc-prose": 1,
       "release-note": 28
+    },
+    "release-notes/studio/unreleased/background-task-commands.md": {
+      "release-note": 7
     },
     "sdk/go/README.md": {
       "doc-owner": 1,

@@ -327,6 +327,16 @@ func SessionJobsDir(sessionPath string) string {
 	return sessionStem(sessionPath) + ".jobs"
 }
 
+// SessionTaskCommands is the replayable task-command registry for a session
+// (<id>.task-commands.json).
+func SessionTaskCommands(sessionPath string) string {
+	sessionPath = strings.TrimSpace(sessionPath)
+	if sessionPath == "" {
+		return ""
+	}
+	return sessionStem(sessionPath) + ".task-commands.json"
+}
+
 // SessionInboxDir is the durable session-level instruction inbox
 // (<id>.inbox/). Manifest metadata and frozen prompt blobs live here.
 func SessionInboxDir(sessionPath string) string {
@@ -372,6 +382,7 @@ func SessionSidecarFiles(sessionPath string) []string {
 		SessionConflictLog(sessionPath),
 		SessionRecoveryState(sessionPath),
 		SessionContext(sessionPath),
+		SessionTaskCommands(sessionPath),
 	}
 }
 

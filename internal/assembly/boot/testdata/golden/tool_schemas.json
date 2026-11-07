@@ -286,6 +286,55 @@
     }
   },
   {
+    "Name": "register_task_command",
+    "Description": "Save a running or completed background job as a replayable task command. The host copies the command, working directory, runner, and shell from the job; give only a display name. Requires confirmation.",
+    "ReadOnly": false,
+    "Schema": {
+      "properties": {
+        "job_id": {
+          "description": "job whose recipe to save",
+          "type": "string"
+        },
+        "name": {
+          "description": "display name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "Name": "task_command",
+    "Description": "Operate registered task commands by command_id: list, start, restart, stop. A job id goes stale on restart; a command id does not. Output: bash_output(command_id=...).",
+    "ReadOnly": false,
+    "Schema": {
+      "properties": {
+        "action": {
+          "description": "list|start|restart|stop",
+          "enum": [
+            "list",
+            "start",
+            "restart",
+            "stop"
+          ],
+          "type": "string"
+        },
+        "command_id": {
+          "description": "command id from action=list; required for start/restart/stop",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "Name": "todo_write",
     "Description": "Record and update a structured task list for the current work. Send the COMPLETE list every call — it replaces the previous one. Use it to plan multi-step work and show progress: keep exactly one item in_progress at a time, and flip an item to completed the moment it's done (don't batch completions). Skip it for trivial single-step tasks. The list is two-level: a `level` 0 item is a PHASE (a milestone) and the `level` 1 items after it are its concrete sub-steps. COPY `step_id` VERBATIM for every item that already has one: it is how a completion stays attached to its step when you retitle it, insert a step above it, or reorder the list. Give a new item a fresh unique id (e.g. \"plan_step_07\"); never reuse or renumber an existing one.",
     "ReadOnly": true,

@@ -1,6 +1,10 @@
 package jobs
 
-import "strings"
+import (
+	"context"
+	"io"
+	"strings"
+)
 
 // View is a read-only snapshot of a job for the status bar.
 type View struct {
@@ -13,6 +17,12 @@ type View struct {
 	Detail      string `json:"detail,omitempty"`
 	Status      string `json:"status"`
 	StartedAt   int64  `json:"startedAt"` // unix milliseconds
+	CommandID   string `json:"commandId,omitempty"`
+	// Restartable says the job retained a host-owned recipe for replaying the
+	// same work; the command text in Detail is never used as that recipe.
+	Restartable bool `json:"restartable,omitempty"`
+	// Recipe is the executable definition a person may save as a task command.
+	Recipe *LaunchRecipe `json:"recipe,omitempty"`
 	// How a job that has ended did: when, the exit status of a command (none for
 	// a task), and for any job the last line it wrote.
 	EndedAt  int64  `json:"endedAt,omitempty"`
@@ -45,7 +55,15 @@ func (m *Manager) RunningForSession(parentSession string) []View {
 		// A requested stop keeps the job on the running surface until its done
 		// channel closes, so a rebuild or workspace lease cannot see an idle runtime
 		// while the process tree is still unwinding.
-		out = append(out, View{ID: j.ID, Kind: j.Kind, Label: j.Label, Description: j.Present.Description, Detail: j.Present.Detail, Status: string(Running), StartedAt: j.times.started, Tail: lastLine(j.tail)})
+		out = append(out, View{
+			ID: j.ID, Kind: j.Kind, Label: j.Label,
+			Description: j.launch.present.Description, Detail: j.launch.present.Detail,
+			Status: string(Running), StartedAt: j.times.started,
+			CommandID:   j.launch.registration.commandID,
+			Restartable: j.launch.restart.run != nil,
+			Recipe:      launchRecipePointer(j.launch.registration.recipe),
+			Tail:        lastLine(j.tail),
+		})
 		j.mu.Unlock()
 	}
 	return out
@@ -69,7 +87,7 @@ func (m *Manager) EndedForSession(parentSession string) []View {
 			continue
 		}
 		j.mu.Lock()
-		v := View{ID: j.ID, Kind: j.Kind, Label: j.Label, Description: j.Present.Description, Detail: j.Present.Detail,
+		v := View{ID: j.ID, Kind: j.Kind, Label: j.Label, Description: j.launch.present.Description, Detail: j.launch.present.Detail,
 			Status: string(j.status), StartedAt: j.times.started, EndedAt: j.times.finished, ExitCode: j.artifact.exit, Tail: j.artifact.last}
 		if v.ExitCode == nil && j.Kind == "bash" && j.status == Done {
 			zero := 0
@@ -99,6 +117,13 @@ type Presentation struct {
 	Detail      string
 }
 
+type launchState struct {
+	present      Presentation
+	restart      restartState
+	registration registrationState
+	replacedBy   string
+}
+
 // StartOption sets what a job carries beyond its kind and label, before it is
 // visible to anything else.
 type StartOption func(*Job)
@@ -121,8 +146,25 @@ func bounded(s string, limit int) string {
 // WithPresentation names the job for a person and records what it runs in full.
 func WithPresentation(description, detail string) StartOption {
 	return func(j *Job) {
-		j.Present.Description = bounded(description, MaxDescriptionRunes)
-		j.Present.Detail = bounded(detail, MaxDetailRunes)
+		j.launch.present.Description = bounded(description, MaxDescriptionRunes)
+		j.launch.present.Detail = bounded(detail, MaxDetailRunes)
+	}
+}
+
+// Run is one idempotent execution of a background job's host-owned recipe.
+type Run func(context.Context, io.Writer) (string, error)
+
+type restartState struct {
+	run       Run
+	requested bool
+}
+
+// WithRestart marks a job replayable and gives the manager the function that
+// starts another attempt. Command text is presentation only and never becomes
+// an executable recipe by itself.
+func WithRestart(run Run) StartOption {
+	return func(j *Job) {
+		j.launch.restart.run = run
 	}
 }
 

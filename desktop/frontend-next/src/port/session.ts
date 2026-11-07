@@ -293,6 +293,8 @@ export interface SessionStatus {
   sessionCostQuote?: import("./wire").CostQuote;
   sessionUsage?: SessionUsage;
   jobs?: JobEntry[];
+  taskCommands?: TaskCommandEntry[];
+  taskCommandsError?: string;
   // This session's jobs that have finished, kept apart from the running ones.
   endedJobs?: JobEntry[];
 }
@@ -343,6 +345,46 @@ export interface JobEntry {
   endedAt?: number;
   exitCode?: number;
   tail?: string;
+  commandId?: string;
+  // True only when the kernel retained a host-owned recipe for replaying the
+  // same launch. Command text alone is never enough.
+  restartable?: boolean;
+  // The host-owned executable definition, shown before registration.
+  recipe?: JobRecipe;
+}
+
+export interface JobRecipe {
+  runner: string;
+  cwd: string;
+  command: string;
+  shell: {
+    kind: string;
+    path: string;
+    args: string[];
+    version?: string;
+    drives?: string;
+  };
+}
+
+export interface TaskCommandEntry {
+  id: string;
+  name: string;
+  runner: string;
+  cwd: string;
+  command: string;
+  shell: {
+    kind: string;
+    path: string;
+    args: string[];
+    version?: string;
+    drives?: string;
+  };
+  sourceJobId?: string;
+  createdAt: string;
+  updatedAt: string;
+  // A missing shell or working directory is reported before Start.
+  available?: boolean;
+  unavailableReason?: string;
 }
 
 // The end of a running job's output, for a person looking at it: how much the

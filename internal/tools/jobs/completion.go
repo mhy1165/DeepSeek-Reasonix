@@ -140,7 +140,7 @@ func (m *Manager) ackCompletion(eventID string) {
 // recordCompletion queues the finished-job summary for DrainCompletedNote and
 // emits a closing Notice. It returns the event publishCompletion hands on; a
 // zero event means nothing was queued and there is nothing to publish.
-func (m *Manager) recordCompletion(parentSession, id, kind, label, resultRef string, st Status, err error) CompletionEvent {
+func (m *Manager) recordCompletion(parentSession, id, kind, label, resultRef string, st Status, err error, queue bool) CompletionEvent {
 	tag := id
 	if label != "" {
 		tag = fmt.Sprintf("%s (%s)", id, label)
@@ -168,6 +168,9 @@ func (m *Manager) recordCompletion(parentSession, id, kind, label, resultRef str
 
 	if !nilutil.IsNil(m.taskRecorder) {
 		m.taskRecorder.RecordDone(id, st, err)
+	}
+	if !queue {
+		return CompletionEvent{}
 	}
 
 	ne := event.Event{Kind: event.Notice, Level: event.LevelInfo, Code: event.NoticeCodeJobFinished,

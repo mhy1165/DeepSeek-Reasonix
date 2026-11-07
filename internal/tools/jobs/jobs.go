@@ -104,7 +104,7 @@ type Job struct {
 	Kind      string // "bash" | "task"
 	Label     string
 	SessionID string
-	Present   Presentation // set once, at start
+	launch    launchState
 
 	mu          sync.Mutex
 	tail        []byte
@@ -152,6 +152,7 @@ type Manager struct {
 	loaded             map[string]bool
 	scratch            *scratch.Dir
 	reservations       map[string]int
+	commandStarts      map[string]bool
 
 	stalledWarning time.Duration
 	teardownGrace  time.Duration
@@ -222,6 +223,7 @@ func NewManager(sink event.Sink, opts ...Option) *Manager {
 		destroying:    map[string]bool{},
 		artifactDirs:  map[string]string{},
 		reservations:  map[string]int{},
+		commandStarts: map[string]bool{},
 		loaded:        map[string]bool{},
 		scratch:       scratchDir,
 		teardownGrace: DefaultTeardownGrace,
@@ -469,8 +471,8 @@ func (m *Manager) writeJobMetaLocked(j *Job, st Status) error {
 		ID:               j.ID,
 		Kind:             j.Kind,
 		Label:            j.Label,
-		Description:      j.Present.Description,
-		Detail:           j.Present.Detail,
+		Description:      j.launch.present.Description,
+		Detail:           j.launch.present.Detail,
 		SessionID:        j.SessionID,
 		OwnerID:          m.ownerID,
 		Status:           st,
@@ -668,7 +670,7 @@ func (m *Manager) recordStalled(parentSession, id, kind, label string, steps int
 func (m *Manager) get(parentSession, id string) *Job {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.findJobLocked(parentSession, id)
+	return m.followReplacementLocked(parentSession, id)
 }
 
 func (m *Manager) findJobLocked(parentSession, id string) *Job {
@@ -819,34 +821,6 @@ func (m *Manager) KillForSession(parentSession, id string) bool {
 // Wait is WaitForSession across every session, for a caller that owns them all.
 func (m *Manager) Wait(ctx context.Context, ids []string, opts WaitOptions) ([]Result, WaitOutcome) {
 	return m.WaitForSession(ctx, "", ids, opts)
-}
-
-// resolve maps requested ids to jobs; an empty list selects all running jobs.
-func (m *Manager) resolve(parentSession string, ids []string) []*Job {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	var out []*Job
-	if len(ids) == 0 {
-		for _, key := range m.order {
-			j := m.jobs[key]
-			if !sessionMatches(parentSession, j.SessionID) {
-				continue
-			}
-			j.mu.Lock()
-			running := j.status == Running
-			j.mu.Unlock()
-			if running {
-				out = append(out, j)
-			}
-		}
-		return out
-	}
-	for _, id := range ids {
-		if j := m.findJobLocked(parentSession, id); j != nil {
-			out = append(out, j)
-		}
-	}
-	return out
 }
 
 // ReserveStartForSession atomically reserves capacity for a job start. The
@@ -1338,7 +1312,7 @@ func (m *Manager) loadSessionArtifacts(parentSession, sessionPath, dir string) {
 			ID:        id,
 			Kind:      meta.Kind,
 			Label:     meta.Label,
-			Present:   Presentation{Description: meta.Description, Detail: meta.Detail},
+			launch:    launchState{present: Presentation{Description: meta.Description, Detail: meta.Detail}},
 			SessionID: parentSession,
 			status:    meta.Status,
 			times:     jobTimes{started: meta.StartedAt, activity: meta.FinishedAt, finished: meta.FinishedAt},

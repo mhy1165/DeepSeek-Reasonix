@@ -176,8 +176,9 @@ type Controller struct {
 	// sessionTemp owns the logical-session private temporary directory shared
 	// by Bash calls. Retained for this Controller's lifetime; rotated on
 	// /new, /clear, resume of another session, and branch switches.
-	sessionTemp *sessiontemp.Manager
-	browser     *browser.Session
+	sessionTemp  *sessiontemp.Manager
+	browser      *browser.Session
+	taskCommands taskCommandState
 	// recoveryDepthCapNotices records session paths that already surfaced the
 	// depth-cap recovery warning. Repeated saves on the same conflict copy are
 	// diagnostic noise for the UI; keep logging/diagnostics, but emit the user
@@ -362,6 +363,9 @@ type Options struct {
 	Feedback FeedbackOptions // nil service refuses every feedback call
 	// Jobs is the session-scoped background-job manager (nil disables background jobs).
 	Jobs *jobs.Manager
+	// TaskCommandStarter starts a stored session task without a model turn.
+	TaskCommandStarter   TaskCommandStarter
+	TaskCommandInspector TaskCommandInspector
 	// Subagents reads the runs the delegation tools persist; nil lists none.
 	Subagents SubagentReader
 	// TaskStore remains a FileStore-compatible authority. Desktop injects one
@@ -488,6 +492,8 @@ func New(opts Options) *Controller {
 	}
 	if c.executor != nil {
 		c.bindProjectionSeer(c.deliveredNewest, c.deliveredSees)
+		c.executor.SetTaskCommandRegistrar(c)
+		c.executor.SetTaskCommandControl(c)
 	}
 	c.policy.RepoPrograms = c.repoPrograms
 	c.approval.onGrantChange = func() { go c.persistSessionGrants() }
@@ -1206,13 +1212,4 @@ func (c *Controller) ApplyMode(plan, autoApproveTools bool) []string {
 // Bypass is the legacy name for AutoApproveTools.
 func (c *Controller) Bypass() bool {
 	return c.AutoApproveTools()
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }

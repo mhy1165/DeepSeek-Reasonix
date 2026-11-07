@@ -109,9 +109,11 @@ type controllerDeps struct {
 	// jobs is the session-scoped background-job manager. The agent's background
 	// tools spawn into it; Compose drains its completion notes into the next turn;
 	// Close cancels its still-running jobs.
-	jobs      *jobs.Manager
-	subagents SubagentReader
-	taskStore taskmonitor.WriteStore
+	jobs               *jobs.Manager
+	taskCommandStarter TaskCommandStarter
+	taskCmdInspector   TaskCommandInspector
+	subagents          SubagentReader
+	taskStore          taskmonitor.WriteStore
 	// workspaceLease is the Delivery writer owner shared with the executor.
 	// It is exposed only through a sanitized state snapshot for Desktop recovery.
 	workspaceLease *workspacelease.Owner
@@ -199,6 +201,8 @@ func newControllerDeps(opts Options, sink event.Sink, usageTee *goalUsageTee, ru
 		tariff:              opts.Tariff,
 		feedback:            opts.Feedback,
 		jobs:                opts.Jobs,
+		taskCommandStarter:  opts.TaskCommandStarter,
+		taskCmdInspector:    opts.TaskCommandInspector,
 		subagents:           opts.Subagents,
 		taskStore:           opts.TaskStore,
 		workspaceLease:      opts.WorkspaceLease,

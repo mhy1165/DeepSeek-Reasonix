@@ -36,6 +36,8 @@ var subagentAlwaysHiddenTools = []string{
 	"install_source",
 	"apply_isolated",
 	"discard_isolated",
+	"register_task_command",
+	"task_command",
 }
 
 var subagentJobTools = []string{

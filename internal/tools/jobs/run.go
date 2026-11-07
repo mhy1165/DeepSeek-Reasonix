@@ -84,11 +84,12 @@ func (m *Manager) launchJob(ctx context.Context, j *Job, run func(context.Contex
 			j.noteArtifactErr("metadata: " + metaErr.Error())
 		}
 		resultRef := j.artifactRefLocked()
+		restarting := j.launch.restart.requested
 		j.mu.Unlock()
 		// An observable terminal status must imply its completion is already
 		// queued: Wait only blocks on Running jobs, so recording second would let
 		// a drain race ahead of the bookkeeping.
-		ev := m.recordCompletion(parentSession, id, kind, label, resultRef, st, err)
+		ev := m.recordCompletion(parentSession, id, kind, label, resultRef, st, err, !restarting)
 
 		j.mu.Lock()
 		if j.status != Killed && j.status != Interrupted { // a status published on cancel stands

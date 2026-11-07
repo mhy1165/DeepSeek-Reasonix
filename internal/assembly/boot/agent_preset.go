@@ -51,6 +51,11 @@ func CoreProviderToolNames() []string {
 		"bash_output",
 		"kill_shell",
 		"wait",
+		// Session task commands belong beside the job tools they operate: both are
+		// gated on the turn context, and an allowlist without their names hides
+		// them from every model no matter what the context carries.
+		"register_task_command",
+		"task_command",
 		"read_file",
 		"edit_file",
 		"write_file",
