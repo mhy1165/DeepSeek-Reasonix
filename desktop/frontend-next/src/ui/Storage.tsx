@@ -43,6 +43,12 @@ function within<T>(work: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+// A pause in typing counts as a finished path. Each check sizes the source tree
+// to price the move, so asking per keystroke floods the kernel with reads for
+// paths nobody meant — and, before the kernel stopped creating targets, left a
+// folder behind for every one of them.
+const PLAN_DELAY_MS = 350;
+
 export function Storage({ port, hub, workspace, onRecovered }: { port: AgentPort; hub: HubPort; workspace: string; onRecovered: () => void }) {
   const [state, setState] = useState<StorageState | null>(null);
   const [error, setError] = useState("");
@@ -117,14 +123,20 @@ export function Storage({ port, hub, workspace, onRecovered }: { port: AgentPort
     if (picking) input.current?.focus();
   }, [picking]);
 
+  const checkTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const check = useCallback(
     (root: string, dir: string) => {
+      clearTimeout(checkTimer.current);
       setPlan(null);
       if (!dir.trim()) return;
-      port.planStorageMove(root, dir).then(setPlan).catch(() => setPlan(null));
+      checkTimer.current = setTimeout(() => {
+        port.planStorageMove(root, dir).then(setPlan).catch(() => setPlan(null));
+      }, PLAN_DELAY_MS);
     },
     [port],
   );
+
+  useEffect(() => () => clearTimeout(checkTimer.current), []);
 
   const start = useCallback(
     (root: string, dir: string) => {
