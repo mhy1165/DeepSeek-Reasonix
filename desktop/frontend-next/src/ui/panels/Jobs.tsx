@@ -51,9 +51,11 @@ export function Jobs({ jobs, commands, commandsError, onCancel, onView, onStart,
   // every rail that was fine. The order it sits in is fixed per posture, so a
   // block coming and going moves only what is below it — cheaper than a
   // standing row a reader has learned to skip.
-  const registered = commands ?? [];
-  if (jobs.length === 0 && registered.length === 0) return null;
   const live = jobs.filter((j) => j.status === "running");
+  // A command whose job is running has moved down into the jobs block: the row
+  // that can be started again is the one with nothing running.
+  const registered = (commands ?? []).filter((c) => !live.some((j) => j.commandId === c.id));
+  if (jobs.length === 0 && registered.length === 0) return null;
   const stopAll = () => {
     setArmed("");
     for (const j of live) void onCancel?.(j.id);
@@ -165,7 +167,7 @@ export function Jobs({ jobs, commands, commandsError, onCancel, onView, onStart,
                   <StudioIcon name="refresh" />
                 </button>
               )}
-              {running && onRegister && j.recipe && (armed === "reg:" + j.id ? (
+              {running && onRegister && j.recipe && !j.commandId && (armed === "reg:" + j.id ? (
                 <span className="job-confirm" data-action="job.register-confirm">
                   <input
                     value={draft}

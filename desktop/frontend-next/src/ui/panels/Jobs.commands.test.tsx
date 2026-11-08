@@ -42,16 +42,16 @@ it("deletes only after the confirmation is accepted", async () => {
   expect(onDelete).toHaveBeenCalledWith("ruoyi-auth");
 });
 
-// One command, one running job: a row whose job is already running cannot be
-// started a second time.
-it("refuses a second start while the command is running", () => {
+// One command, one running job: while its job runs the definition moves down
+// into the jobs list, so nothing up here offers a second start.
+it("moves a running command out of the registered list", () => {
   const running: JobEntry = {
     id: "bash-12", kind: "bash", label: "auth", status: "running",
     startedAt: Date.now(), commandId: "ruoyi-auth", restartable: true,
   };
   render(<Jobs jobs={[running]} commands={[COMMAND]} onStart={vi.fn()} onDelete={vi.fn()} />);
-  const start = screen.getByRole("button", { name: "开始" }) as HTMLButtonElement;
-  expect(start.disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "开始" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "删除" })).toBeNull();
 });
 
 // A command whose shell or working directory is gone says so, and cannot be

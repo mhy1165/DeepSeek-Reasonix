@@ -59,7 +59,7 @@ export function JobDeck({ jobs, commands, onCancel, onView, onClear, onStart, on
             <button type="button" className="agent-quiet" data-action="job.restart" data-target={j.id} disabled={stopping.has(j.id)}
               aria-label={t("common.restart")} onClick={() => { setArmed(""); void onRestart(j.id); }}>{t("common.restart")}</button>
           )}
-          {running && onRegister && j.recipe && (armed === "reg:" + j.id ? (
+          {running && onRegister && j.recipe && !j.commandId && (armed === "reg:" + j.id ? (
             <span className="job-deck-confirm job-confirm">
               <input value={draft} aria-label={t("common.register")} title={j.recipe.cwd + " · " + j.recipe.command} onChange={(e) => setDraft(e.target.value)} />
               <button type="button" className="job-deck-sure" data-action="job.register" data-target={j.id}
@@ -81,7 +81,9 @@ export function JobDeck({ jobs, commands, onCancel, onView, onClear, onStart, on
       </div>
     );
   };
-  const registered = (commands ?? []).filter(Boolean);
+  // A command whose job is running has moved down into the live list: the row
+  // that can be started again is the one with nothing running.
+  const registered = (commands ?? []).filter((c) => c && !live.some((j) => j.commandId === c.id));
   return (
     <div className="job-deck">
       {registered.length > 0 && (
