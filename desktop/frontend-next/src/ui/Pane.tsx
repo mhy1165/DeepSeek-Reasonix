@@ -68,6 +68,7 @@ import { MemorySuggestRow } from "./MemorySuggestRow";
 import { SidePanel } from "./SidePanel";
 import { cancelJob, deleteTaskCommand, registerTaskCommand, restartJob, startTaskCommand } from "./jobcancel";
 import { jobNoticeMovesStatus } from "./jobSync";
+import { readClearedJobs, writeClearedJobs } from "./jobClear";
 import { JobsLiveContext } from "./JobRunView";
 import { ThoughtFolds, useThoughtFolds } from "./thoughtfold";
 import { jobName } from "./panels/JobName";
@@ -333,7 +334,15 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
   const paired = useMemo(() => pairCheckpoints(s.items, checkpoints), [s.revision, checkpoints]);
   const rail = useMemo(() => railOf(s.items, s.executions, s.subagentPhase), [s.revision, s.executions, s.subagentPhase]);
 
-  const [clearedJobs, setClearedJobs] = useState<ReadonlySet<string>>(() => new Set());
+  // Cleared ended jobs survive the window: the kernel keeps handing them back
+  // until the session is purged, so forgetting them here would undo the click.
+  const clearKey = rt.sessionPath || rt.id;
+  const [clearedJobs, setClearedJobs] = useState<ReadonlySet<string>>(() => readClearedJobs(clearKey));
+  const clearJobs = useCallback((ids: string[]) => setClearedJobs((was) => {
+    const next = new Set([...was, ...ids]);
+    writeClearedJobs(clearKey, next);
+    return next;
+  }), [clearKey]);
   const jobs = useMemo(() => {
     const all = [...(status?.jobs ?? NO_JOBS), ...(status?.endedJobs ?? NO_JOBS)];
     return clearedJobs.size ? all.filter((j) => !clearedJobs.has(j.id)) : all.length ? all : NO_JOBS;
@@ -685,7 +694,7 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
           onCancelJob={(id) => cancelJob(port, id, notify, refreshStatus).then(() => {})}
           onReadJob={readJob}
           onOpenRun={openRun} onStopCall={(id) => void port.stopToolCall(id).catch(notify)}
-          onClearJobs={(ids) => setClearedJobs((was) => new Set([...was, ...ids]))}
+          onClearJobs={clearJobs}
           onOpenJob={jobsLive.open}
           usage={status?.sessionUsage} quote={status?.sessionCostQuote} tariff={status?.tariff} onTariffFlip={refreshStatus}
         />
