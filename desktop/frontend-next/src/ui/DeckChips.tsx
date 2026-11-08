@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { JobEntry, JobOutput } from "../port/port";
+import type { JobEntry, JobOutput, TaskCommandEntry } from "../port/port";
 import { t } from "../i18n";
 import { StudioIcon } from "./StudioIcon";
 import { agentsIn } from "./panels/derive";
@@ -17,7 +17,7 @@ export type Deck = "" | "agents" | "jobs";
  *  readings sit at the right end of the run rail, beside the other numbers
  *  about this turn, and each opens on hover the way the context reading does —
  *  one gesture for every summary on this row. */
-export function DeckChips({ tasks, jobs, open, onOpen, onCancelJob, onReadJob, onOpenRun, onStopCall, onClearJobs, onOpenJob }: { tasks: Task[]; jobs: JobEntry[]; open: Deck; onOpen: (next: (was: Deck) => Deck) => void; onCancelJob?: (id: string) => Promise<void>; onReadJob?: (id: string) => Promise<JobOutput>; onOpenRun?: (call: string) => Promise<boolean>; onStopCall?: (callId: string) => void; onClearJobs?: (ids: string[]) => void; onOpenJob?: (job: JobEntry) => void }) {
+export function DeckChips({ tasks, jobs, commands, open, onOpen, onCancelJob, onReadJob, onOpenRun, onStopCall, onClearJobs, onOpenJob, onStartCommand, onDeleteCommand, onRestartJob, onRegisterJob }: { tasks: Task[]; jobs: JobEntry[]; commands?: TaskCommandEntry[]; open: Deck; onOpen: (next: (was: Deck) => Deck) => void; onCancelJob?: (id: string) => Promise<void>; onReadJob?: (id: string) => Promise<JobOutput>; onOpenRun?: (call: string) => Promise<boolean>; onStopCall?: (callId: string) => void; onClearJobs?: (ids: string[]) => void; onOpenJob?: (job: JobEntry) => void; onStartCommand?: (id: string) => Promise<void>; onDeleteCommand?: (id: string) => Promise<void>; onRestartJob?: (id: string) => Promise<void>; onRegisterJob?: (jobId: string, name: string) => Promise<void> }) {
   const agentsBox = useRef<HTMLDivElement>(null);
   const jobsBox = useRef<HTMLDivElement>(null);
   const [viewing, setViewing] = useState("");
@@ -48,7 +48,7 @@ export function DeckChips({ tasks, jobs, open, onOpen, onCancelJob, onReadJob, o
     const failed = jobs.filter((j) => j.status === "failed" && !seenFailed.has(j.id));
     if (failed.length) setSeenFailed((was) => new Set([...was, ...failed.map((j) => j.id)]));
   }, [open, jobs, seenFailed]);
-  if (tasks.length === 0 && jobs.length === 0) return null;
+  if (tasks.length === 0 && jobs.length === 0 && (commands ?? []).length === 0) return null;
 
   return (
     <>
@@ -79,7 +79,7 @@ export function DeckChips({ tasks, jobs, open, onOpen, onCancelJob, onReadJob, o
       {viewingJob && onReadJob && jobs.some((j) => j.id === viewingJob) && (
         <JobOutputView job={jobs.find((j) => j.id === viewingJob)!} read={onReadJob} onClose={() => setViewingJob("")} onCancel={onCancelJob} />
       )}
-      {jobs.length > 0 && (
+      {(jobs.length > 0 || (commands ?? []).length > 0) && (
         <div ref={jobsBox} className="studio-deck-anchor" data-open={open === "jobs" ? "" : undefined}>
           <button
             type="button"
@@ -95,11 +95,11 @@ export function DeckChips({ tasks, jobs, open, onOpen, onCancelJob, onReadJob, o
           >
             {liveJobs > 0 && <i className="agent-live" aria-hidden="true" />}
             <StudioIcon name="play" />
-            <b>{liveJobs || failedJobs || jobs.length}</b>
+            <b>{liveJobs || failedJobs || jobs.length + (commands ?? []).length}</b>
             <span>{liveJobs ? t("subagent.background_jobs_running") : failedJobs ? t("subagent.background_jobs_failed") : t("subagent.background_jobs_done")}</span>
           </button>
           <div className="studio-deck-pop" role="dialog" aria-label={t("common.background_jobs")}>
-            <JobDeck jobs={jobs} onCancel={onCancelJob} onClear={onClearJobs} onView={onOpenJob || onReadJob ? (id) => { shut(); const job = jobs.find((j) => j.id === id); if (onOpenJob && job) onOpenJob(job); else setViewingJob(id); } : undefined} />
+            <JobDeck jobs={jobs} commands={commands} onCancel={onCancelJob} onClear={onClearJobs} onStart={onStartCommand} onDelete={onDeleteCommand} onRestart={onRestartJob} onRegister={onRegisterJob} onView={onOpenJob || onReadJob ? (id) => { shut(); const job = jobs.find((j) => j.id === id); if (onOpenJob && job) onOpenJob(job); else setViewingJob(id); } : undefined} />
           </div>
         </div>
       )}
