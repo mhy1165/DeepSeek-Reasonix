@@ -183,6 +183,8 @@ export const COMMON: Messages = {
   "common.source_name": { zh: "来源名称", en: "Source name" },
   "common.start": { zh: "开始", en: "Start" },
   "common.registered_tasks": { zh: "已注册任务", en: "Registered tasks" },
+  "common.restart": { zh: "重启", en: "Restart" },
+  "common.register": { zh: "注册", en: "Register" },
   "common.unavailable": { zh: "不可用", en: "Unavailable" },
   "common.start_a_new_session": { zh: "新建会话", en: "Start a new session" },
   "common.start_a_new_session_in": { zh: "在 {name} 下新建会话", en: "Start a new session in {name}" },

@@ -66,7 +66,8 @@ import { PeerHeldBar } from "./PeerHeldBar";
 import { PostureNote, postureNote } from "./PostureNote";
 import { MemorySuggestRow } from "./MemorySuggestRow";
 import { SidePanel } from "./SidePanel";
-import { cancelJob, deleteTaskCommand, startTaskCommand } from "./jobcancel";
+import { cancelJob, deleteTaskCommand, registerTaskCommand, restartJob, startTaskCommand } from "./jobcancel";
+import { jobNoticeMovesStatus } from "./jobSync";
 import { JobsLiveContext } from "./JobRunView";
 import { ThoughtFolds, useThoughtFolds } from "./thoughtfold";
 import { jobName } from "./panels/JobName";
@@ -233,6 +234,9 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
           else if ("decisionReceipt" in ev && ev.decisionReceipt) refreshStatus();
           // The session total is the kernel's, read in the currency it now
           // values in; summing what arrived before the change would mix two.
+          // A job's own notices carry a line of transcript and nothing else;
+          // the list they change lives in /status, so the snapshot is read again.
+          if (ev.kind === "notice" && jobNoticeMovesStatus(ev.code)) refreshStatus();
           if (ev.kind === "notice" && ev.code === "display_currency") revalue();
         },
         () => {
@@ -340,6 +344,8 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
   const taskCommands = status?.taskCommands ?? NO_COMMANDS;
   const startCommand = useCallback((id: string) => startTaskCommand(port, id, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
   const deleteCommand = useCallback((id: string) => deleteTaskCommand(port, id, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
+  const restartCommand = useCallback((id: string) => restartJob(port, id, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
+  const registerCommand = useCallback((jobId: string, name: string) => registerTaskCommand(port, jobId, name, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
   const counts = useMemo(() => {
     let steps = 0;
     let wrote = 0;
@@ -709,6 +715,8 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
             taskCommandsError={status?.taskCommandsError}
             onStartCommand={startCommand}
             onDeleteCommand={deleteCommand}
+            onRestartJob={restartCommand}
+            onRegisterJob={registerCommand}
             mcp={mcp}
             rate={tps}
             done={!running}

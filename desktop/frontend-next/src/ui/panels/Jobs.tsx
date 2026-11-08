@@ -14,7 +14,7 @@ const ENDED: Record<string, { label: string; tone: string }> = {
   interrupted: { label: "common.interrupted", tone: "var(--faint)" },
 };
 
-export function Jobs({ jobs, commands, commandsError, onCancel, onView, onStart, onDelete }: {
+export function Jobs({ jobs, commands, commandsError, onCancel, onView, onStart, onDelete, onRestart, onRegister }: {
   jobs: JobEntry[];
   // Registered definitions of this session, which start a job rather than being
   // one: they are listed above the jobs so a running command is both a row that
@@ -25,11 +25,15 @@ export function Jobs({ jobs, commands, commandsError, onCancel, onView, onStart,
   onView?: (id: string) => void;
   onStart?: (id: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onRestart?: (id: string) => Promise<void>;
+  onRegister?: (jobId: string, name: string) => Promise<void>;
 }) {
   const [, tick] = useState(0);
   const [stopping, setStopping] = useState<ReadonlySet<string>>(new Set());
   const [armed, setArmed] = useState("");
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  // The name a person gives the definition, typed beside the recipe it saves.
+  const [draft, setDraft] = useState("");
 
   useEffect(() => {
     if (!armed) return;
@@ -147,6 +151,46 @@ export function Jobs({ jobs, commands, commandsError, onCancel, onView, onStart,
                 )}
               </JobName>
               <span className="rt">{running ? jobElapsed(Date.now() - j.startedAt) : ended ? t(ended.label) : j.status}</span>
+              {running && onRestart && j.restartable && (
+                <button
+                  type="button"
+                  className="job-run"
+                  data-action="job.restart"
+                  data-target={j.id}
+                  disabled={busy(j.id)}
+                  title={t("common.restart")}
+                  aria-label={t("common.restart")}
+                  onClick={() => run(j.id, onRestart)}
+                >
+                  <StudioIcon name="refresh" />
+                </button>
+              )}
+              {running && onRegister && j.recipe && (armed === "reg:" + j.id ? (
+                <span className="job-confirm" data-action="job.register-confirm">
+                  <input
+                    value={draft}
+                    aria-label={t("common.register")}
+                    title={j.recipe.cwd + " · " + j.recipe.command}
+                    onChange={(e) => setDraft(e.target.value)}
+                  />
+                  <span className="rt">{j.recipe.cwd}</span>
+                  <button type="button" className="job-stop" data-action="job.register" data-target={j.id} disabled={busy(j.id)}
+                    onClick={() => run(j.id, (id) => onRegister(id, draft.trim() || jobName(j)))}>{t("panels.ok")}</button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="job-run"
+                  data-action="job.arm-register"
+                  data-target={j.id}
+                  disabled={busy(j.id)}
+                  title={t("common.register")}
+                  aria-label={t("common.register")}
+                  onClick={() => { setDraft(jobName(j)); setArmed("reg:" + j.id); }}
+                >
+                  <StudioIcon name="pin" />
+                </button>
+              ))}
               {running && onCancel && (armed === j.id ? (
                 <span className="job-confirm">
                   <span>{t("panels.stop")}</span>

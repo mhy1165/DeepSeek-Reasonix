@@ -45,6 +45,8 @@ interface Props extends Rail {
   taskCommandsError?: string;
   onStartCommand: (id: string) => Promise<void>;
   onDeleteCommand: (id: string) => Promise<void>;
+  onRestartJob: (id: string) => Promise<void>;
+  onRegisterJob: (jobId: string, name: string) => Promise<void>;
   mcp: McpEntry[];
   rate: number;
   done: boolean;
@@ -93,6 +95,8 @@ export const Metrics = memo(function Metrics({
   taskCommandsError,
   onStartCommand,
   onDeleteCommand,
+  onRestartJob,
+  onRegisterJob,
   mcp,
   rate,
   done,
@@ -147,6 +151,8 @@ export const Metrics = memo(function Metrics({
         commandsError={taskCommandsError}
         onStart={onStartCommand}
         onDelete={onDeleteCommand}
+        onRestart={onRestartJob}
+        onRegister={onRegisterJob}
       />
     ),
     // Not folded behind a diagnostics drawer, which is where this was headed.

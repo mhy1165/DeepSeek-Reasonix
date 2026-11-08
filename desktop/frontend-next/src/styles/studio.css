@@ -1697,6 +1697,7 @@ button, input, textarea { font-size: var(--fs-ui); }
 }
 .job-stop .studio-icon { width: 10px; height: 10px; fill: currentColor; }
 .job-stop:hover { background: var(--overlay); color: var(--err-ink); }
+.job-confirm input { width: 96px; min-width: 0; padding: 1px 0; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); font: inherit; }
 .job-stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
 .job-stop:disabled { opacity: .45; cursor: default; }
 @media (pointer: coarse) { .job-stop { width: 32px; height: 32px; margin: -8px -8px -8px 0; } }
