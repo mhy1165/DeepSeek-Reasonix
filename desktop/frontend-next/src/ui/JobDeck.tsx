@@ -136,7 +136,14 @@ export function JobDeck({ jobs, commands, onCancel, onView, onClear, onStart, on
         <section aria-label={t("panels.ended_n", { n: ended.length })}>
           <header className="job-deck-head">
             <b>{t("panels.ended_n", { n: ended.length })}</b>
-            {onClear && <button type="button" className="agent-quiet" data-action="job.clear" onClick={() => onClear(ended.map((j) => j.id))}>{t("panels.clear")}</button>}
+            {onClear && (armed === "clear" ? (
+              <span className="job-deck-confirm">
+                <span>{t("common.delete")}</span>
+                <button type="button" className="job-deck-sure" data-action="job.clear" onClick={() => { setArmed(""); onClear(ended.map((j) => j.id)); }}>{t("panels.ok")}</button>
+              </span>
+            ) : (
+              <button type="button" className="agent-quiet" data-action="job.arm-clear" onClick={() => setArmed("clear")}>{t("common.delete")}</button>
+            ))}
           </header>
           {ended.map(row)}
           <p className="job-deck-note">{t("panels.ended_jobs_stay")}</p>

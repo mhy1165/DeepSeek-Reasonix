@@ -54,3 +54,15 @@ it("registers a running job after its name is confirmed in the deck", async () =
   await userEvent.click(screen.getByRole("button", { name: "确定" }));
   expect(onRegister).toHaveBeenCalledWith("bash-31", "auth 服务");
 });
+
+// The ended section's action says delete, and it asks once: the rows are gone
+// from the list for good afterwards, so one press should not do it by accident.
+it("deletes the ended jobs only after the confirmation", async () => {
+  const onClear = vi.fn();
+  const ended: JobEntry = { id: "bash-40", kind: "bash", label: "build", status: "done", startedAt: Date.now() - 9000, endedAt: Date.now(), exitCode: 0 };
+  render(<DeckChips tasks={[]} jobs={[ended]} open="jobs" onOpen={() => {}} onClearJobs={onClear} />);
+  await userEvent.click(screen.getByRole("button", { name: "删除" }));
+  expect(onClear).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "确定" }));
+  expect(onClear).toHaveBeenCalledWith(["bash-40"]);
+});
