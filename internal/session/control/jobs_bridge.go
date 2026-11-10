@@ -178,6 +178,15 @@ func (c *Controller) EndedJobs() []jobs.View {
 	return c.jobs.EndedForSession(c.parentSessionID())
 }
 
+// RestartJob replaces one of this controller's running jobs with a new attempt
+// from the host-owned recipe captured when it started.
+func (c *Controller) RestartJob(id string) (jobs.View, error) {
+	if c.jobs == nil {
+		return jobs.View{}, jobs.ErrRestartNotRunning
+	}
+	return c.jobs.RestartForSession(c.parentSessionID(), id)
+}
+
 // KillJob cancels a running background job by ID.
 func (c *Controller) KillJob(id string) bool {
 	if c.jobs == nil {

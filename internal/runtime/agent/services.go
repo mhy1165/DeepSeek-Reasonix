@@ -83,6 +83,12 @@ type agentServices struct {
 	// call's context so the background tools can reach it. nil degrades
 	// gracefully.
 	jobs *jobs.Manager
+	// taskCommands writes parent-session task registrations. Nil or a sub-agent
+	// depth above zero keeps register_task_command unavailable.
+	taskCommands tool.TaskCommandRegistrar
+	// taskCommandControl drives the same registry: list, start, restart, stop.
+	// Nil or a sub-agent depth above zero keeps task_command unavailable.
+	taskCommandControl tool.TaskCommandControl
 	// writeScheduler coordinates parent-agent writes against background
 	// subagent write claims. Set on the parent executor only.
 	writeScheduler *writeclaim.SubagentScheduler

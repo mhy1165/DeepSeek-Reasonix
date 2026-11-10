@@ -17,5 +17,6 @@ func sessionSidecarMoves(oldPath, newPath string) [][2]string {
 		{store.SessionCheckpointDir(oldPath), store.SessionCheckpointDir(newPath)},
 		{store.SessionJobsDir(oldPath), store.SessionJobsDir(newPath)},
 		{store.SessionInboxDir(oldPath), store.SessionInboxDir(newPath)},
+		{store.SessionTaskCommands(oldPath), store.SessionTaskCommands(newPath)},
 	}
 }

@@ -1,6 +1,6 @@
 import { benchJobs, sessionCompletion } from "./mock_sessions";
 import type { SurfaceActionRequest, SurfaceActionRecord } from "./surface";
-import type { JobOutput, PlanAction } from "./session";
+import type { JobEntry, JobOutput, PlanAction } from "./session";
 import { approvalKind } from "./mock_approval";
 import { HttpError } from "./port";
 import type { AccountState, AgentPort, Completion, CompletionItem, DeviceGrant, StudioLogs, VersionHub, VersionNotes, ApprovalMode, ApprovalVerdict, Checkpoint, RewindPlan, RewindResult, RewindUndo, RewindScope, HistoryMessage, HostTodo, BrowserTab, ModelEntry, Preset, ProviderSetup, RoleAssignments, RoleOverride, SessionEntry, SessionStatus, WalletReading, MemoryCatalog, MemoryEdit, UsageReport, UploadReport, MemoryEntry, WorkspaceInfo, Attachment, DroppedRef, Queue, QueueItem, Queued, ChipCall, NotifyPrefs, TrayPrefs, UsageQuery } from "./port";
@@ -657,6 +657,40 @@ export class MockPort extends MockWorkspace implements AgentPort {
     const job = this.state.jobs?.find((j) => j.id === jobId && j.status === "running");
     if (!job) throw new HttpError(409, "no running background job with this id", { code: "job.not_running" });
     this.state = { ...this.state, jobs: this.state.jobs?.map((j) => (j === job ? { ...j, status: "killed" } : j)) };
+  }
+
+  // The fixture keeps no recipes, so a restart is the same refusal the kernel
+  // gives a job that ended without one.
+  async restartJob(jobId: string): Promise<JobEntry> {
+    const job = this.state.jobs?.find((j) => j.id === jobId && j.status === "running");
+    if (!job) throw new HttpError(409, "no running background job with this id", { code: "job.not_running" });
+    if (!job.restartable) throw new HttpError(409, "this job kept no recipe to replay", { code: "job.not_restartable" });
+    throw new HttpError(409, "this job kept no recipe to replay", { code: "job.not_restartable" });
+  }
+
+  async registerTaskCommand(jobId: string, name: string): Promise<string> {
+    void jobId;
+    const id = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "task";
+    this.state = { ...this.state, taskCommands: [...(this.state.taskCommands ?? []), { id, name, runner: "bash", cwd: "backend", command: "mvn -pl ruoyi-auth install -DskipTests", shell: { kind: "pwsh", path: "pwsh", args: [] }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), available: true }] };
+    return id;
+  }
+
+  async startTaskCommand(id: string): Promise<JobEntry> {
+    const command = this.state.taskCommands?.find((c) => c.id === id);
+    if (!command) throw new HttpError(409, "no such task command in this session", { code: "task_command.not_found" });
+    if (this.state.jobs?.some((j) => j.commandId === id && j.status === "running")) {
+      throw new HttpError(409, "this task command is already running", { code: "task_command.running" });
+    }
+    const job: JobEntry = { id: "bash-" + Math.floor(Math.random() * 90 + 10), kind: "bash", label: command.name, description: command.name, detail: command.command, status: "running", startedAt: Date.now(), commandId: id, restartable: true };
+    this.state = { ...this.state, jobs: [...(this.state.jobs ?? []), job] };
+    return job;
+  }
+
+  async deleteTaskCommand(id: string): Promise<void> {
+    if (this.state.jobs?.some((j) => j.commandId === id && j.status === "running")) {
+      throw new HttpError(409, "stop this task command before deleting it", { code: "task_command.remove_running" });
+    }
+    this.state = { ...this.state, taskCommands: (this.state.taskCommands ?? []).filter((c) => c.id !== id) };
   }
 
   async jobOutput(jobId: string): Promise<JobOutput> {

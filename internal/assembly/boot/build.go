@@ -37,6 +37,7 @@ import (
 	"reasonix/internal/safety/permission"
 	"reasonix/internal/safety/sandbox"
 	"reasonix/internal/session/control"
+	"reasonix/internal/tools/builtin"
 	"reasonix/internal/tools/script"
 )
 
@@ -555,6 +556,16 @@ func (b *builder) controllerOptions(runner agent.Runner, executor *agent.Agent, 
 	opts, cfg, root, entry, t := b.opts, b.cfg, b.root, b.model.entry, &b.tools
 	specOptions := t.specOptions
 	providerIdentity := ResolveProviderBuildIdentity(entry, b.proxy, nil)
+	var taskCommandStarter control.TaskCommandStarter
+	var taskCommandInspector control.TaskCommandInspector
+	if bashTool, ok := t.reg.Get("bash"); ok {
+		if starter, ok := builtin.NewTaskCommandStarter(bashTool); ok {
+			taskCommandStarter = control.TaskCommandStarter(starter)
+		}
+		if inspector, ok := builtin.NewTaskCommandInspector(bashTool); ok {
+			taskCommandInspector = control.TaskCommandInspector(inspector)
+		}
+	}
 	return control.Options{
 		Observe:                        b.observeRun(),
 		GoalTokenBudget:                cfg.Agent.GoalTokenBudget,
@@ -595,6 +606,8 @@ func (b *builder) controllerOptions(runner agent.Runner, executor *agent.Agent, 
 		Tariff:                func(at time.Time) (pricing.Tariff, bool) { return b.cfg.LiveTariff(b.model.ref, at) },
 		Feedback:              control.FeedbackOptions{Service: feedbackService(b.roots.Home(), b.proxy, opts.AccountsURL), ProviderKind: feedbackProviderKind(entry), Surface: opts.FeedbackSurface},
 		Jobs:                  b.session.jobs,
+		TaskCommandStarter:    taskCommandStarter,
+		TaskCommandInspector:  taskCommandInspector,
 		TaskStore:             opts.TaskStore,
 		WorkspaceLease:        b.session.lease,
 		Registry:              t.reg,

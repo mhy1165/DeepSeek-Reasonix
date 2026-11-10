@@ -265,6 +265,12 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	if j := s.ctl().EndedJobs(); len(j) > 0 {
 		sess["endedJobs"] = j
 	}
+	if commands := s.ctl().TaskCommands(); len(commands) > 0 {
+		sess["taskCommands"] = commands
+	}
+	if code := s.ctl().TaskCommandsError(); code != "" {
+		sess["taskCommandsError"] = code
+	}
 	// Additive: present only where the vendor's own schedule bills the model's
 	// rate, so a custom price or a relay shows no window it does not charge.
 	if tariff, ok := s.ctl().Tariff(); ok {

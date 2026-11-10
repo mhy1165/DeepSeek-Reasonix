@@ -25,7 +25,7 @@ export type { MemoryEdit } from "./memory";
 export type { Money, UploadDay, UploadProvider, UploadReport, UsageDay, UsageHour, UsageModel, UsageProvider, UsageQuery, UsageReport } from "./usage";
 import type { CompactionSettings, Completion, CompletionItem, ModelEntry, ModelMode, ModelPrice, RoleAssignments, RoleOverride } from "./model";
 import type { NetworkProbe, NetworkSettings } from "./network";
-import type { ApprovalDefault, ApprovalMode, WorkspaceTrust, ApprovalVerdict, BrowserTab, Checkpoint, HistoryMessage, HostTodo, JobEntry, JobOutput, Preset, RewindPlan, ToolOutputPage, RewindResult, RewindUndo, RewindScope, SessionEntry, SessionStatus, SessionUsage, SourceUsage, WalletLine, WalletReading, PlanAction } from "./session";
+import type { ApprovalDefault, ApprovalMode, WorkspaceTrust, ApprovalVerdict, BrowserTab, Checkpoint, HistoryMessage, HostTodo, JobEntry, JobOutput, Preset, RewindPlan, TaskCommandEntry, JobRecipe, ToolOutputPage, RewindResult, RewindUndo, RewindScope, SessionEntry, SessionStatus, SessionUsage, SourceUsage, WalletLine, WalletReading, PlanAction } from "./session";
 import type { ContextBreakdown, ShellOption, ShellSettings } from "./shell";
 import type { SkillCatalog, SkillEntry, SkillUpdateChange, SkillUpdatePlan } from "./skill";
 import type { SubagentRun, SubagentTranscript } from "./subagent";
@@ -35,7 +35,7 @@ import type { SessionTailPort } from "./session_tail";
 
 export type { AccountState, AccountUser, ApprovalDefault, ApprovalMode, ApprovalVerdict, WorkspaceTrust, CapabilityScope,
   Checkpoint, CompactionSettings, Completion, CompletionItem, ContextBreakdown, DeviceGrant, HistoryMessage, HostTodo, BrowserTab,
-  HookCatalog, HookDryRun, HookEntry, HookEventInfo, HookSource, JobEntry, JobOutput, McpCatalog, McpDraft,
+  HookCatalog, HookDryRun, HookEntry, HookEventInfo, HookSource, JobEntry, JobOutput, McpCatalog, McpDraft, TaskCommandEntry, JobRecipe,
   McpDraftServer, McpEntry, McpInstallResult, McpInstallScope, McpLoad, McpRisk, McpTool, MemoryCatalog,
   MemoryEntry, UnreadableMemory, ModelEntry, ModelMode, ModelPrice, NetworkProbe, NetworkSettings, Preset, RewindPlan,
   RewindResult, RewindUndo, RewindScope, RoleAssignments, RoleOverride, ScopeLayer, SessionEntry, SessionStatus, SessionUsage, SourceUsage,
@@ -705,6 +705,15 @@ export interface AgentPort extends MemoryHoldPort, WorkspacePreviewPort, Session
   // Stops one background job this session started; a job that already ended
   // is refused (job.not_running), not silently acknowledged.
   cancelJob(jobId: string): Promise<void>;
+  // Replaces a running job with a new attempt from the recipe the kernel kept
+  // for it; a job without one is refused (job.not_restartable).
+  restartJob(jobId: string): Promise<JobEntry>;
+  // Saves a running job's launch as a task command of this session.
+  registerTaskCommand(jobId: string, name: string): Promise<string>;
+  // Starts a registered task command by its stable id, not a job id.
+  startTaskCommand(id: string): Promise<JobEntry>;
+  // Deletes a registered definition; the job it started, if any, is untouched.
+  deleteTaskCommand(id: string): Promise<void>;
   // Ends one running tool call and lets the turn go on; a call that already
   // finished is refused (tool_call.not_running).
   stopToolCall(callId: string): Promise<void>;

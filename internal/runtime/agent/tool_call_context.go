@@ -52,6 +52,12 @@ func (a *Agent) toolCallContext(ctx context.Context, plan *toolCallPlan) context
 			return manager.StartForSession(session, kind, label, run).ID
 		})
 	}
+	if a.subagentDepth == 0 && a.svc.taskCommands != nil {
+		cctx = tool.WithTaskCommandRegistrar(cctx, a.svc.taskCommands)
+	}
+	if a.subagentDepth == 0 && a.svc.taskCommandControl != nil {
+		cctx = tool.WithTaskCommandControl(cctx, a.svc.taskCommandControl)
+	}
 	if a.svc.sandboxEscape != nil {
 		cctx = sandbox.WithEscapeApprover(cctx, a.svc.sandboxEscape)
 	}

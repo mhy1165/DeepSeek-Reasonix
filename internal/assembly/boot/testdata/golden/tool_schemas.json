@@ -343,6 +343,28 @@
     }
   },
   {
+    "Name": "register_task_command",
+    "Description": "Save a running or completed background job as a replayable task command. The host copies the command, working directory, runner, and shell from the job; give only a display name. Requires confirmation.",
+    "ReadOnly": false,
+    "Schema": {
+      "properties": {
+        "job_id": {
+          "description": "job whose recipe to save",
+          "type": "string"
+        },
+        "name": {
+          "description": "display name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "Name": "send_peer_message",
     "Description": "Send text to another Reasonix session on this machine, named by list_peers. The message waits in that session until its own user approves it; only then does its model read it, labelled as coming from you. Sending grants no permission and is not a way to run anything there: it is for passing information. Do not include secrets.",
     "ReadOnly": false,
@@ -361,6 +383,33 @@
       "required": [
         "text",
         "to"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "Name": "task_command",
+    "Description": "Operate registered task commands by command_id: list, start, restart, stop. A job id goes stale on restart; a command id does not. Output: bash_output(command_id=...).",
+    "ReadOnly": false,
+    "Schema": {
+      "properties": {
+        "action": {
+          "description": "list|start|restart|stop",
+          "enum": [
+            "list",
+            "start",
+            "restart",
+            "stop"
+          ],
+          "type": "string"
+        },
+        "command_id": {
+          "description": "command id from action=list; required for start/restart/stop",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action"
       ],
       "type": "object"
     }

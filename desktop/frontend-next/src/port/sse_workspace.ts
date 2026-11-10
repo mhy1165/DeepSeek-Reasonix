@@ -1,6 +1,6 @@
 import type { ChangeDiff, StageRequest, WorkspaceBranches, WorkspaceChanges, WorkspaceGit } from "./port";
 import type { DiscardRequest, GitCommitFiles, GitHistory, GitRepos, PushPlan, PushRequest, PushResult } from "./workspace";
-import type { JobOutput, ToolOutputPage } from "./session";
+import type { JobEntry, JobOutput, ToolOutputPage } from "./session";
 import type { SubagentRun, SubagentTranscript } from "./subagent";
 import { SseFeedback } from "./sse_feedback";
 import { host } from "./host";
@@ -88,6 +88,18 @@ export class SseWorkspace extends SseFeedback {
   }
   cancelJob(jobId: string) {
     return this.post("/jobs/" + encodeURIComponent(jobId) + "/cancel");
+  }
+  restartJob(jobId: string) {
+    return this.post0<JobEntry>("/jobs/" + encodeURIComponent(jobId) + "/restart", {});
+  }
+  registerTaskCommand(jobId: string, name: string) {
+    return this.post0<{ id: string }>("/jobs/" + encodeURIComponent(jobId) + "/register", { name }).then((r) => r.id);
+  }
+  startTaskCommand(id: string) {
+    return this.post0<JobEntry>("/task-commands/" + encodeURIComponent(id) + "/start", {});
+  }
+  deleteTaskCommand(id: string) {
+    return this.post("/task-commands/" + encodeURIComponent(id) + "/delete");
   }
   jobOutput(jobId: string) {
     return this.get<JobOutput>("/jobs/" + encodeURIComponent(jobId) + "/output");

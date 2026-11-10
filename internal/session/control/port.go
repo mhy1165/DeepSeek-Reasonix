@@ -10,6 +10,7 @@ import (
 	"reasonix/internal/contract/event"
 	"reasonix/internal/contract/pricing"
 	"reasonix/internal/contract/provider"
+	"reasonix/internal/contract/tool"
 	"reasonix/internal/ext/command"
 	"reasonix/internal/ext/hook"
 	"reasonix/internal/ext/plugin"
@@ -400,6 +401,8 @@ type Status interface {
 	Balance(ctx context.Context) billing.Reading
 	Tariff() (pricing.Tariff, bool)
 	Jobs() []jobs.View
+	TaskCommands() []TaskCommandView
+	TaskCommandsError() string
 	EndedJobs() []jobs.View
 	Todos() []evidence.TodoItem
 	BrowserTabs() []browser.TabInfo
@@ -421,7 +424,11 @@ type MCPSignIn interface {
 // BackgroundJobs stops work a session left running outside any turn.
 type BackgroundJobs interface {
 	CancelJob(id string) bool
+	RestartJob(id string) (jobs.View, error)
 	JobPeek(id string, max int) (jobs.Peek, bool)
+	StartTaskCommand(ctx context.Context, id string) (jobs.View, error)
+	RegisterTaskCommand(ctx context.Context, req tool.TaskCommandRegistration) (string, error)
+	RemoveTaskCommand(ctx context.Context, id string) error
 }
 
 // ToolCallStopper ends one running tool call and leaves its turn going.

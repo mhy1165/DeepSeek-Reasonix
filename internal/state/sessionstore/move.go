@@ -1,13 +1,16 @@
 package sessionstore
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"time"
 
+	"reasonix/internal/base/fileutil"
 	"reasonix/internal/contract/agentcomposition"
 	"reasonix/internal/contract/provider"
+	"reasonix/internal/state/sessiontask"
 	"reasonix/internal/state/store"
 )
 
@@ -135,6 +138,11 @@ func MoveSession(src, dstDir, dstRoot string) (string, error) {
 		_ = store.RemoveSessionArtifacts(dst)
 		return "", ErrMoveNotVerified
 	}
+	if err := moveTaskCommands(src, dst); err != nil {
+		guard.Release()
+		_ = store.RemoveSessionArtifacts(dst)
+		return "", err
+	}
 	if err := removeWholeSession(src); err != nil {
 		guard.Release()
 		return dst, errors.Join(ErrSourceNotRemoved, err)
@@ -142,6 +150,52 @@ func MoveSession(src, dstDir, dstRoot string) (string, error) {
 	// A lock file that survives is bookkeeping: the conversation is gone.
 	_ = guard.RemoveSidecarsAndRelease()
 	return dst, nil
+}
+
+func moveTaskCommands(src, dst string) error {
+	srcPath := store.SessionTaskCommands(src)
+	if _, err := os.Stat(srcPath); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	_, err := sessiontask.Load(srcPath, BranchID(src))
+	if err != nil {
+		data, readErr := os.ReadFile(srcPath)
+		if readErr != nil {
+			return readErr
+		}
+		dstPath := store.SessionTaskCommands(dst)
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0o700); err != nil {
+			return err
+		}
+		return fileutil.AtomicWriteFileStrict(dstPath, data, 0o600)
+	}
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	fields["sessionId"], err = json.Marshal(BranchID(dst))
+	if err != nil {
+		return err
+	}
+	data, err = json.MarshalIndent(fields, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	if len(data) > sessiontask.MaxFileBytes {
+		return sessiontask.ErrInvalidCommand
+	}
+	dstPath := store.SessionTaskCommands(dst)
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o700); err != nil {
+		return err
+	}
+	return fileutil.AtomicWriteFileStrict(dstPath, data, 0o600)
 }
 
 // withoutSystem leaves out the system messages: they hold the old project's

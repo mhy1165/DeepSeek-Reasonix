@@ -8,7 +8,7 @@ import { ErrorBar } from "./ErrorBar";
 import { t } from "../i18n";
 import { hasPendingDecision, posture, runState } from "./decisions";
 import { createPortal } from "react-dom";
-import type { Checkpoint, ContextBreakdown, JobEntry, McpEntry, SessionStatus, WorkspaceChanges, WorkspaceGit } from "../port/port";
+import type { Checkpoint, ContextBreakdown, JobEntry, McpEntry, SessionStatus, TaskCommandEntry, WorkspaceChanges, WorkspaceGit } from "../port/port";
 import type { TrajectoryRead } from "../port/wire";
 import { chipLabel, initialState, quoteAmount, reduce } from "../state/session";
 import type { CurrencyAmount } from "../state/session";
@@ -66,7 +66,9 @@ import { PeerHeldBar } from "./PeerHeldBar";
 import { PostureNote, postureNote } from "./PostureNote";
 import { MemorySuggestRow } from "./MemorySuggestRow";
 import { SidePanel } from "./SidePanel";
-import { cancelJob } from "./jobcancel";
+import { cancelJob, deleteTaskCommand, registerTaskCommand, restartJob, startTaskCommand } from "./jobcancel";
+import { jobNoticeMovesStatus } from "./jobSync";
+import { readClearedJobs, writeClearedJobs } from "./jobClear";
 import { JobsLiveContext } from "./JobRunView";
 import { ThoughtFolds, useThoughtFolds } from "./thoughtfold";
 import { jobName } from "./panels/JobName";
@@ -89,6 +91,7 @@ export type { PaneReport };
 // A shared constant, not `?? []`: a fresh empty array every render reads as a
 // changed prop to the rail below it.
 const NO_JOBS: JobEntry[] = [];
+const NO_COMMANDS: TaskCommandEntry[] = [];
 const NO_COST: CurrencyAmount[] = [];
 
 type SessionRead = { kind: "pending" } | { kind: "settled"; status: SessionStatus | null };
@@ -233,6 +236,9 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
           else if ("decisionReceipt" in ev && ev.decisionReceipt) refreshStatus();
           // The session total is the kernel's, read in the currency it now
           // values in; summing what arrived before the change would mix two.
+          // A job's own notices carry a line of transcript and nothing else;
+          // the list they change lives in /status, so the snapshot is read again.
+          if (ev.kind === "notice" && jobNoticeMovesStatus(ev.code)) refreshStatus();
           if (ev.kind === "notice" && ev.code === "display_currency") revalue();
         },
         () => {
@@ -329,12 +335,27 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
   const paired = useMemo(() => pairCheckpoints(s.items, checkpoints), [s.revision, checkpoints]);
   const rail = useMemo(() => railOf(s.items, s.executions, s.subagentPhase), [s.revision, s.executions, s.subagentPhase]);
 
-  const [clearedJobs, setClearedJobs] = useState<ReadonlySet<string>>(() => new Set());
+  // Cleared ended jobs survive the window: the kernel keeps handing them back
+  // until the session is purged, so forgetting them here would undo the click.
+  const clearKey = rt.sessionPath || rt.id;
+  const [clearedJobs, setClearedJobs] = useState<ReadonlySet<string>>(() => readClearedJobs(clearKey));
+  const clearJobs = useCallback((ids: string[]) => setClearedJobs((was) => {
+    const next = new Set([...was, ...ids]);
+    writeClearedJobs(clearKey, next);
+    return next;
+  }), [clearKey]);
   const jobs = useMemo(() => {
     const all = [...(status?.jobs ?? NO_JOBS), ...(status?.endedJobs ?? NO_JOBS)];
     return clearedJobs.size ? all.filter((j) => !clearedJobs.has(j.id)) : all.length ? all : NO_JOBS;
   }, [status?.jobs, status?.endedJobs, clearedJobs]);
   const jobsLive = useMemo(() => ({ jobs, cancel: (id: string) => cancelJob(port, id, notify, refreshStatus).then(() => {}), open: (job: JobEntry) => openJob({ id: job.id, name: jobName(job) }) }), [jobs, port, notify, refreshStatus, openJob]);
+  // Registered commands sit beside the jobs they start: the kernel keeps the
+  // definition, and every action addresses it by its stable id.
+  const taskCommands = status?.taskCommands ?? NO_COMMANDS;
+  const startCommand = useCallback((id: string) => startTaskCommand(port, id, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
+  const deleteCommand = useCallback((id: string) => deleteTaskCommand(port, id, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
+  const restartCommand = useCallback((id: string) => restartJob(port, id, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
+  const registerCommand = useCallback((jobId: string, name: string) => registerTaskCommand(port, jobId, name, notify, refreshStatus).then(() => {}), [port, notify, refreshStatus]);
   const counts = useMemo(() => {
     let steps = 0;
     let wrote = 0;
@@ -669,11 +690,12 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
         <Composer queueStrip={<Queue queue={queue} running={running} shown={steerShown} onSendNow={onQueueSendNow} onToSteer={onQueueToSteer} onCancel={onQueueCancel} onRetry={onQueueRetry} onPause={onQueuePause} />} queued={waiting(queue).length > 0} worktreeTarget={worktreeTarget} onWorktreePhase={setWorktreePhase} port={port} workspace={workspace} fresh={ready && !historyPaging.hasMore && !historyPaging.busy && !historyPaging.failed && !rt.host && s.items.length === 0} status={status} running={running} quote={quote} restore={restored} inject={inserted} focus={askFocus} onSubmit={submit} onChanged={refreshStatus} onError={notify} onSettings={onSettings} side={sideAsk} onSide={() => setSideAsk((on) => !on)} sidePanel={sideAsk ? <SidePanel port={port} onClose={() => setSideAsk(false)} onQuote={(text) => setInserted((was) => ({ n: was.n + 1, text }))} /> : null} changeCount={changeCount} countElsewhere={pill} git={git} onTreeChanged={refreshTree} pulse={pulse} draftKey={draftKey(rt.host ?? "", rt.root, rt.sessionPath || status?.sessionPath || "")} />
         <MeterRail
           tps={tps} trail={trail} running={running} speed={speed} metrics={s.metrics} ctx={ctx} mcp={mcp} compact={compact} cost={cost} turnCost={s.metrics.coverage === "none" ? NO_COST : s.metrics.turn}
-          wallet={wallet} hideAmounts={hideAmounts} tasks={rail.tasks} jobs={jobs} onSettings={onSettings}
+          wallet={wallet} hideAmounts={hideAmounts} tasks={rail.tasks} jobs={jobs} commands={taskCommands} onSettings={onSettings}
+          onStartCommand={startCommand} onDeleteCommand={deleteCommand} onRestartJob={restartCommand} onRegisterJob={registerCommand}
           onCancelJob={(id) => cancelJob(port, id, notify, refreshStatus).then(() => {})}
           onReadJob={readJob}
           onOpenRun={openRun} onStopCall={(id) => void port.stopToolCall(id).catch(notify)}
-          onClearJobs={(ids) => setClearedJobs((was) => new Set([...was, ...ids]))}
+          onClearJobs={clearJobs}
           onOpenJob={jobsLive.open}
           usage={status?.sessionUsage} quote={status?.sessionCostQuote} tariff={status?.tariff} onTariffFlip={refreshStatus}
         />
@@ -700,6 +722,12 @@ function PaneView({ port, hub, rt, title, active, visible, sideHost, side, onFoc
             changes={rail.changes}
             stats={rail.stats}
             jobs={jobs}
+            taskCommands={taskCommands}
+            taskCommandsError={status?.taskCommandsError}
+            onStartCommand={startCommand}
+            onDeleteCommand={deleteCommand}
+            onRestartJob={restartCommand}
+            onRegisterJob={registerCommand}
             mcp={mcp}
             rate={tps}
             done={!running}
